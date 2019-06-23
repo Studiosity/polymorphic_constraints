@@ -12,22 +12,18 @@ module PolymorphicConstraints
         polymorphic_models = polymorphic_models.map(&:to_s)
 
         sql = <<-SQL
-          CREATE FUNCTION check_#{relation}_upsert_integrity()
-            RETURNS TRIGGER AS '
-              BEGIN
-                IF NEW.#{relation}_type = ''#{polymorphic_models[0].classify}'' AND
-                   EXISTS (SELECT id FROM #{polymorphic_models[0].classify.constantize.table_name}
-                           WHERE id = NEW.#{relation}_id) THEN
-
-                  RETURN NEW;
+          CREATE FUNCTION check_#{relation}_on_#{associated_table}_upsert_integrity()
+            RETURNS TRIGGER AS 'BEGIN
+              IF TG_OP = ''UPDATE'' AND OLD.#{relation}_type = NEW.#{relation}_type AND
+                  OLD.#{relation}_id = NEW.#{relation}_id THEN
+                RETURN NEW;
         SQL
 
-        polymorphic_models[1..-1].each do |polymorphic_model|
+        polymorphic_models.each do |polymorphic_model|
           sql << <<-SQL
             ELSEIF NEW.#{relation}_type = ''#{polymorphic_model.classify}'' AND
-                   EXISTS (SELECT id FROM #{polymorphic_model.classify.constantize.table_name}
+                   EXISTS (SELECT 1 FROM #{polymorphic_model.classify.constantize.table_name}
                            WHERE id = NEW.#{relation}_id) THEN
-
               RETURN NEW;
           SQL
         end
@@ -41,38 +37,30 @@ module PolymorphicConstraints
           END'
           LANGUAGE plpgsql;
 
-          CREATE TRIGGER check_#{relation}_upsert_integrity_trigger
+          CREATE TRIGGER check_#{relation}_on_#{associated_table}_upsert_integrity_trigger
             BEFORE INSERT OR UPDATE ON #{associated_table}
             FOR EACH ROW
-            EXECUTE PROCEDURE check_#{relation}_upsert_integrity();
+            EXECUTE PROCEDURE check_#{relation}_on_#{associated_table}_upsert_integrity();
         SQL
 
         strip_non_essential_spaces(sql)
       end
 
       def generate_delete_constraints(relation, associated_table, polymorphic_models)
+        raise 'Must provide at least one polymorphic model' unless polymorphic_models.any?
+
         associated_table = associated_table.to_s
         polymorphic_models = polymorphic_models.map(&:to_s)
 
         sql = <<-SQL
-          CREATE FUNCTION check_#{relation}_delete_integrity()
-            RETURNS TRIGGER AS '
-              BEGIN
-                IF TG_TABLE_NAME = ''#{polymorphic_models[0].classify.constantize.table_name}'' AND
-                   EXISTS (SELECT id FROM #{associated_table}
-                           WHERE #{relation}_type = ''#{polymorphic_models[0].classify}''
-                           AND #{relation}_id = OLD.id) THEN
-
-                  RAISE EXCEPTION ''Polymorphic reference exists.
-                                    There are records in #{associated_table} that refer to the table % with id %.
-                                    You must delete those records of table #{associated_table} first.'', TG_TABLE_NAME, OLD.id;
-                  RETURN NULL;
+          CREATE FUNCTION check_#{relation}_on_#{associated_table}_delete_integrity()
+            RETURNS TRIGGER AS 'BEGIN
         SQL
 
-        polymorphic_models[1..-1].each do |polymorphic_model|
+        polymorphic_models.each_with_index do |polymorphic_model, index|
           sql << <<-SQL
-            ELSEIF TG_TABLE_NAME = ''#{polymorphic_model.classify.constantize.table_name}'' AND
-                   EXISTS (SELECT id FROM #{associated_table}
+            #{'ELSE' if index > 0}IF TG_TABLE_NAME = ''#{polymorphic_model.classify.constantize.table_name}'' AND
+                   EXISTS (SELECT 1 FROM #{associated_table}
                            WHERE #{relation}_type = ''#{polymorphic_model.classify}''
                            AND #{relation}_id = OLD.id) THEN
 
@@ -95,22 +83,20 @@ module PolymorphicConstraints
           table_name = polymorphic_model.classify.constantize.table_name
 
           sql << <<-SQL
-            CREATE TRIGGER check_#{relation}_#{table_name}_delete_integrity_trigger
+            CREATE TRIGGER check_#{relation}_to_#{table_name}_on_#{associated_table}_delete_integrity_trigger
               BEFORE DELETE ON #{table_name}
               FOR EACH ROW
-              EXECUTE PROCEDURE check_#{relation}_delete_integrity();
+              EXECUTE PROCEDURE check_#{relation}_on_#{associated_table}_delete_integrity();
           SQL
         end
 
         strip_non_essential_spaces(sql)
       end
 
-      def drop_constraints(relation)
+      def drop_constraints(relation, associated_table)
         sql = <<-SQL
-          DROP FUNCTION IF EXISTS check_#{relation}_upsert_integrity()
-            CASCADE;
-          DROP FUNCTION IF EXISTS check_#{relation}_delete_integrity()
-            CASCADE;
+          DROP FUNCTION IF EXISTS check_#{relation}_on_#{associated_table}_upsert_integrity() CASCADE;
+          DROP FUNCTION IF EXISTS check_#{relation}_on_#{associated_table}_delete_integrity() CASCADE;
         SQL
 
         strip_non_essential_spaces(sql)

@@ -9,19 +9,19 @@ module PolymorphicConstraints
       end
 
       def add_polymorphic_constraints(relation, associated_table, options = {})
-        polymorphic_models = options.fetch(:polymorphic_models) { get_polymorphic_models(relation) }
+        polymorphic_models = options.fetch(:polymorphic_models) { get_polymorphic_models(relation, associated_table) }
 
         statements = []
-        statements << drop_constraints(relation)
+        statements << drop_constraints(relation, associated_table)
         statements << generate_upsert_constraints(relation, associated_table, polymorphic_models)
         statements << generate_delete_constraints(relation, associated_table, polymorphic_models)
 
         statements.flatten.each { |statement| execute statement }
       end
 
-      def remove_polymorphic_constraints(relation)
+      def remove_polymorphic_constraints(relation, associated_table)
         statements = []
-        statements << drop_constraints(relation)
+        statements << drop_constraints(relation, associated_table)
         statements.flatten.each { |statement| execute statement }
       end
 

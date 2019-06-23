@@ -7,8 +7,8 @@ module PolymorphicConstraints
 
       private
 
-      def drop_constraints(relation)
-        polymorphic_models = get_polymorphic_models(relation)
+      def drop_constraints(relation, associated_table)
+        polymorphic_models = get_polymorphic_models(relation, associated_table)
 
         statements = []
         statements << drop_trigger(relation, 'insert')
