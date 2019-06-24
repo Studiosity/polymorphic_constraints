@@ -117,7 +117,22 @@ module PolymorphicConstraints
         strip_non_essential_spaces(sql)
       end
     end
+
+    module PostgreSQLAdapterExtension
+      private
+
+      def translate_exception(exception, message)
+        if message =~ /Polymorphic record not found./ ||
+           message =~ /Invalid polymorphic class specified/ ||
+           message =~ /Polymorphic reference exists./
+          ActiveRecord::InvalidForeignKey.new message
+        else
+          super
+        end
+      end
+    end
   end
 end
 
 PolymorphicConstraints::Adapter.safe_include :PostgreSQLAdapter, PolymorphicConstraints::ConnectionAdapters::PostgreSQLAdapter
+ActiveRecord::ConnectionAdapters::PostgreSQLAdapter.prepend PolymorphicConstraints::ConnectionAdapters::PostgreSQLAdapterExtension
