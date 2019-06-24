@@ -8,7 +8,9 @@ module PolymorphicConstraints
       private
 
       def generate_upsert_constraints(relation, associated_table, polymorphic_models)
-        raise 'Must provide at least one polymorphic model' unless polymorphic_models.any?
+        unless polymorphic_models.any?
+          raise "Must provide at least one polymorphic model for #{relation} on #{associated_table}"
+        end
 
         associated_table = associated_table.to_s
         polymorphic_models = polymorphic_models.map(&:to_s)
@@ -58,7 +60,9 @@ module PolymorphicConstraints
       end
 
       def generate_delete_constraints(relation, associated_table, polymorphic_models)
-        raise 'Must provide at least one polymorphic model' unless polymorphic_models.any?
+        unless polymorphic_models.any?
+          raise "Must provide at least one polymorphic model for #{relation} on #{associated_table}"
+        end
 
         associated_table = associated_table.to_s
         polymorphic_models = polymorphic_models.map(&:to_s)
