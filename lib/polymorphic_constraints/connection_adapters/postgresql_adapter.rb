@@ -16,11 +16,15 @@ module PolymorphicConstraints
         sql = <<-SQL
           CREATE FUNCTION check_#{relation}_on_#{associated_table}_upsert_integrity()
             RETURNS TRIGGER AS 'BEGIN
-              IF NEW.#{relation}_type NOT IN (#{polymorphic_models.map { |m| "''#{m.classify}''" }.join(',')}) THEN
+              IF NEW.#{relation}_type IS NULL AND NEW.#{relation}_id IS NULL THEN
+                RETURN NEW;
+
+              ELSEIF NEW.#{relation}_type NOT IN (#{polymorphic_models.map { |m| "''#{m.classify}''" }.join(',')}) THEN
                 RAISE EXCEPTION ''Invalid polymorphic class specified (%).
                                 Only #{polymorphic_models.map(&:classify).join(', ')} supported.'',
                                 NEW.#{relation}_type;
                 RETURN NULL;
+
               ELSEIF TG_OP = ''UPDATE'' AND OLD.#{relation}_type = NEW.#{relation}_type AND
                   OLD.#{relation}_id = NEW.#{relation}_id THEN
                 RETURN NEW;
