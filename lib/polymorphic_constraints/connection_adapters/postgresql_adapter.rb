@@ -8,13 +8,26 @@ module PolymorphicConstraints
       private
 
       def generate_upsert_constraints(relation, associated_table, polymorphic_models)
+        unless polymorphic_models.any?
+          raise "Must provide at least one polymorphic model for #{relation} on #{associated_table}"
+        end
+
         associated_table = associated_table.to_s
         polymorphic_models = polymorphic_models.map(&:to_s)
 
         sql = <<-SQL
           CREATE FUNCTION check_#{relation}_on_#{associated_table}_upsert_integrity()
             RETURNS TRIGGER AS 'BEGIN
-              IF TG_OP = ''UPDATE'' AND OLD.#{relation}_type = NEW.#{relation}_type AND
+              IF NEW.#{relation}_type IS NULL AND NEW.#{relation}_id IS NULL THEN
+                RETURN NEW;
+
+              ELSEIF NEW.#{relation}_type NOT IN (#{polymorphic_models.map { |m| "''#{m.classify}''" }.join(',')}) THEN
+                RAISE EXCEPTION ''Invalid polymorphic class specified (%).
+                                Only #{polymorphic_models.map(&:classify).join(', ')} supported.'',
+                                NEW.#{relation}_type;
+                RETURN NULL;
+
+              ELSEIF TG_OP = ''UPDATE'' AND OLD.#{relation}_type = NEW.#{relation}_type AND
                   OLD.#{relation}_id = NEW.#{relation}_id THEN
                 RETURN NEW;
         SQL
@@ -47,7 +60,9 @@ module PolymorphicConstraints
       end
 
       def generate_delete_constraints(relation, associated_table, polymorphic_models)
-        raise 'Must provide at least one polymorphic model' unless polymorphic_models.any?
+        unless polymorphic_models.any?
+          raise "Must provide at least one polymorphic model for #{relation} on #{associated_table}"
+        end
 
         associated_table = associated_table.to_s
         polymorphic_models = polymorphic_models.map(&:to_s)
