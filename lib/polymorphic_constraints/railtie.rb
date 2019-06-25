@@ -2,9 +2,6 @@ module PolymorphicConstraints
   class Railtie < Rails::Railtie
     initializer 'polymorphic_constraints.load_migration' do
       ActiveSupport.on_load :active_record do
-        class ActiveRecord::ReferenceViolation < ActiveRecord::ActiveRecordError
-        end
-
         ActiveRecord::ConnectionAdapters.module_eval do
           include PolymorphicConstraints::ConnectionAdapters::SchemaStatements
         end
@@ -16,11 +13,6 @@ module PolymorphicConstraints
         end
 
         PolymorphicConstraints::Adapter.load!
-      end
-
-      ActiveSupport.on_load :action_controller do
-        require 'polymorphic_constraints/utils/polymorphic_error_handler'
-        include PolymorphicConstraints::Utils::PolymorphicErrorHandler
       end
     end
   end
