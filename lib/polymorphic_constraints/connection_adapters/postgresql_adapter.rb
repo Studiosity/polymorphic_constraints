@@ -13,7 +13,7 @@ module PolymorphicConstraints
         end
 
         associated_table = associated_table.to_s
-        polymorphic_models = polymorphic_models.map(&:to_s)
+        polymorphic_models = polymorphic_models.map(&:to_s).sort
 
         sql = <<-SQL
           CREATE FUNCTION check_#{associated_table}_#{relation}_upsert_integrity()
@@ -65,7 +65,7 @@ module PolymorphicConstraints
         end
 
         associated_table = associated_table.to_s
-        polymorphic_models = polymorphic_models.map(&:to_s)
+        polymorphic_models = polymorphic_models.map(&:to_s).sort
 
         sql = <<-SQL
           CREATE FUNCTION check_#{associated_table}_#{relation}_delete_integrity()
