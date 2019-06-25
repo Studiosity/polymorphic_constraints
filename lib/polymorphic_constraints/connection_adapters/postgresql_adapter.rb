@@ -16,7 +16,7 @@ module PolymorphicConstraints
         polymorphic_models = polymorphic_models.map(&:to_s)
 
         sql = <<-SQL
-          CREATE FUNCTION check_#{relation}_on_#{associated_table}_upsert_integrity()
+          CREATE FUNCTION check_#{associated_table}_#{relation}_upsert_integrity()
             RETURNS TRIGGER AS 'BEGIN
               IF NEW.#{relation}_type IS NULL AND NEW.#{relation}_id IS NULL THEN
                 RETURN NEW;
@@ -50,10 +50,10 @@ module PolymorphicConstraints
           END'
           LANGUAGE plpgsql;
 
-          CREATE TRIGGER check_#{relation}_on_#{associated_table}_upsert_integrity_trigger
+          CREATE TRIGGER check_#{associated_table}_#{relation}_upsert_integrity_trigger
             BEFORE INSERT OR UPDATE ON #{associated_table}
             FOR EACH ROW
-            EXECUTE PROCEDURE check_#{relation}_on_#{associated_table}_upsert_integrity();
+            EXECUTE PROCEDURE check_#{associated_table}_#{relation}_upsert_integrity();
         SQL
 
         strip_non_essential_spaces(sql)
@@ -68,7 +68,7 @@ module PolymorphicConstraints
         polymorphic_models = polymorphic_models.map(&:to_s)
 
         sql = <<-SQL
-          CREATE FUNCTION check_#{relation}_on_#{associated_table}_delete_integrity()
+          CREATE FUNCTION check_#{associated_table}_#{relation}_delete_integrity()
             RETURNS TRIGGER AS 'BEGIN
         SQL
 
@@ -98,10 +98,10 @@ module PolymorphicConstraints
           table_name = polymorphic_model.classify.constantize.table_name
 
           sql << <<-SQL
-            CREATE TRIGGER check_#{relation}_to_#{table_name}_on_#{associated_table}_delete_integrity_trigger
+            CREATE TRIGGER check_#{associated_table}_#{relation}_to_#{table_name}_delete_integrity_trigger
               BEFORE DELETE ON #{table_name}
               FOR EACH ROW
-              EXECUTE PROCEDURE check_#{relation}_on_#{associated_table}_delete_integrity();
+              EXECUTE PROCEDURE check_#{associated_table}_#{relation}_delete_integrity();
           SQL
         end
 
@@ -110,8 +110,8 @@ module PolymorphicConstraints
 
       def drop_constraints(relation, associated_table)
         sql = <<-SQL
-          DROP FUNCTION IF EXISTS check_#{relation}_on_#{associated_table}_upsert_integrity() CASCADE;
-          DROP FUNCTION IF EXISTS check_#{relation}_on_#{associated_table}_delete_integrity() CASCADE;
+          DROP FUNCTION IF EXISTS check_#{associated_table}_#{relation}_upsert_integrity() CASCADE;
+          DROP FUNCTION IF EXISTS check_#{associated_table}_#{relation}_delete_integrity() CASCADE;
         SQL
 
         strip_non_essential_spaces(sql)
