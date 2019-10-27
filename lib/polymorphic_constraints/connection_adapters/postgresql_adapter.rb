@@ -122,6 +122,8 @@ module PolymorphicConstraints
       private
 
       def translate_exception(exception, message)
+        message = message[:message] if message.is_a? Hash
+
         if message =~ /Polymorphic record not found./ ||
            message =~ /Invalid polymorphic class specified/ ||
            message =~ /Polymorphic reference exists./
