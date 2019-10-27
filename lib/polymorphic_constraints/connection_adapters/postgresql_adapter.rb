@@ -121,9 +121,7 @@ module PolymorphicConstraints
     module PostgreSQLAdapterExtension
       private
 
-      def translate_exception(exception, message)
-        message = message[:message] if message.is_a? Hash
-
+      def translate_exception(exception, message:, sql:, binds:)
         if message =~ /Polymorphic record not found./ ||
            message =~ /Invalid polymorphic class specified/ ||
            message =~ /Polymorphic reference exists./
