@@ -12,7 +12,13 @@ module PolymorphicConstraints
 
       def contains_polymorphic_relation?(model_class, relation, associated_table)
         associations = model_class.reflect_on_all_associations
-        associations.any? { |r| r.name == associated_table && r.options[:as] == relation.to_sym }
+        associations.any? do |r|
+          r.options[:as] == relation.to_sym &&
+            (
+              (r.is_a?(ActiveRecord::Reflection::HasManyReflection) && r.name == associated_table) ||
+              (r.is_a?(ActiveRecord::Reflection::HasOneReflection) && r.name.to_s == associated_table.to_s.singularize)
+            )
+        end
       end
 
       def base_class
