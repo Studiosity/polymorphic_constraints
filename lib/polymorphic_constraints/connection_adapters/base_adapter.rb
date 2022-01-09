@@ -14,7 +14,8 @@ module PolymorphicConstraints
         statements = []
         statements << drop_constraints(relation, associated_table)
         statements << generate_upsert_constraints(relation, associated_table, polymorphic_models)
-        statements << generate_delete_constraints(relation, associated_table, polymorphic_models)
+        statements <<
+          generate_delete_constraints(relation, associated_table, polymorphic_models, dependent: options[:dependent])
 
         statements.flatten.each { |statement| execute statement }
       end

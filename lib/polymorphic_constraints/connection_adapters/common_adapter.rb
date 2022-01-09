@@ -73,7 +73,7 @@ module PolymorphicConstraints
         strip_non_essential_spaces(sql)
       end
 
-      def generate_delete_constraints(relation, associated_table, polymorphic_models)
+      def generate_delete_constraints(relation, associated_table, polymorphic_models, dependent: nil)
         statements = []
 
         polymorphic_models.each do |polymorphic_model|

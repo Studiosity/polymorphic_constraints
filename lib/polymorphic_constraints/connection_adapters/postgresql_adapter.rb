@@ -15,7 +15,7 @@ module PolymorphicConstraints
         associated_table = associated_table.to_s
         polymorphic_models = polymorphic_models.map(&:to_s).sort
 
-        sql = <<-SQL
+        sql = <<~SQL
           CREATE FUNCTION check_#{associated_table}_#{relation}_upsert_integrity()
             RETURNS TRIGGER AS 'BEGIN
               IF NEW.#{relation}_type IS NULL AND NEW.#{relation}_id IS NULL THEN
@@ -33,7 +33,7 @@ module PolymorphicConstraints
         SQL
 
         polymorphic_models.each do |polymorphic_model|
-          sql << <<-SQL
+          sql << <<~SQL
             ELSEIF NEW.#{relation}_type = ''#{polymorphic_model.classify}'' AND
                    EXISTS (SELECT 1 FROM #{polymorphic_model.classify.constantize.table_name}
                            WHERE id = NEW.#{relation}_id) THEN
@@ -41,7 +41,7 @@ module PolymorphicConstraints
           SQL
         end
 
-        sql << <<-SQL
+        sql << <<~SQL
             ELSE
               RAISE EXCEPTION ''Polymorphic record not found.
                                 No % model with id %.'', NEW.#{relation}_type, NEW.#{relation}_id;
@@ -59,7 +59,7 @@ module PolymorphicConstraints
         strip_non_essential_spaces(sql)
       end
 
-      def generate_delete_constraints(relation, associated_table, polymorphic_models)
+      def generate_delete_constraints(relation, associated_table, polymorphic_models, dependent: :restrict_with_error)
         unless polymorphic_models.any?
           raise "Must provide at least one polymorphic model for #{relation} on #{associated_table}"
         end
@@ -67,13 +67,62 @@ module PolymorphicConstraints
         associated_table = associated_table.to_s
         polymorphic_models = polymorphic_models.map(&:to_s).sort
 
-        sql = <<-SQL
+        sql = <<~SQL
           CREATE FUNCTION check_#{associated_table}_#{relation}_delete_integrity()
             RETURNS TRIGGER AS 'BEGIN
         SQL
 
+        sql +=
+          if dependent == :delete_all
+            delete_all_function_body relation, associated_table, polymorphic_models
+          else
+            delete_restrict_function_body relation, associated_table, polymorphic_models
+          end
+
+        sql << <<~SQL
+          END'
+          LANGUAGE plpgsql;
+        SQL
+
+        polymorphic_models.each do |polymorphic_model|
+          table_name = polymorphic_model.classify.constantize.table_name
+
+          sql << <<~SQL
+            CREATE TRIGGER check_#{associated_table}_#{relation}_to_#{table_name}_delete_integrity_trigger
+              BEFORE DELETE ON #{table_name}
+              FOR EACH ROW
+              EXECUTE PROCEDURE check_#{associated_table}_#{relation}_delete_integrity();
+          SQL
+        end
+
+        strip_non_essential_spaces(sql)
+      end
+
+      def delete_all_function_body(relation, associated_table, polymorphic_models)
+        sql = ''
+
         polymorphic_models.each_with_index do |polymorphic_model, index|
-          sql << <<-SQL
+          sql << <<~SQL
+            #{'ELSE' if index > 0}IF TG_TABLE_NAME = ''#{polymorphic_model.classify.constantize.table_name}''
+              DELETE FROM #{associated_table}
+                WHERE #{relation}_type = ''#{polymorphic_model.classify}''
+                AND #{relation}_id = OLD.id);
+          SQL
+        end
+
+        sql << <<~SQL
+            END IF;
+            RETURN OLD;
+        SQL
+
+        sql
+      end
+
+      def delete_restrict_function_body(relation, associated_table, polymorphic_models)
+        sql = ''
+
+        polymorphic_models.each_with_index do |polymorphic_model, index|
+          sql << <<~SQL
             #{'ELSE' if index > 0}IF TG_TABLE_NAME = ''#{polymorphic_model.classify.constantize.table_name}'' AND
                    EXISTS (SELECT 1 FROM #{associated_table}
                            WHERE #{relation}_type = ''#{polymorphic_model.classify}''
@@ -86,30 +135,17 @@ module PolymorphicConstraints
           SQL
         end
 
-        sql << <<-SQL
+        sql << <<~SQL
               ELSE
                 RETURN OLD;
               END IF;
-            END'
-          LANGUAGE plpgsql;
         SQL
 
-        polymorphic_models.each do |polymorphic_model|
-          table_name = polymorphic_model.classify.constantize.table_name
-
-          sql << <<-SQL
-            CREATE TRIGGER check_#{associated_table}_#{relation}_to_#{table_name}_delete_integrity_trigger
-              BEFORE DELETE ON #{table_name}
-              FOR EACH ROW
-              EXECUTE PROCEDURE check_#{associated_table}_#{relation}_delete_integrity();
-          SQL
-        end
-
-        strip_non_essential_spaces(sql)
+        sql
       end
 
       def drop_constraints(relation, associated_table)
-        sql = <<-SQL
+        sql = <<~SQL
           DROP FUNCTION IF EXISTS check_#{associated_table}_#{relation}_upsert_integrity() CASCADE;
           DROP FUNCTION IF EXISTS check_#{associated_table}_#{relation}_delete_integrity() CASCADE;
         SQL
