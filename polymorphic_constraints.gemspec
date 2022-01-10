@@ -18,7 +18,7 @@ Gem::Specification.new do |s|
   s.require_paths  = ['lib']
 
   s.required_ruby_version = '>= 1.9.3'
-  s.add_dependency 'rails'
+  s.add_dependency 'rails', '~> 6.1'
 
   s.add_development_dependency 'rake'
   s.add_development_dependency 'sqlite3'
