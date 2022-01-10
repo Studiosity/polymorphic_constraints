@@ -103,10 +103,10 @@ module PolymorphicConstraints
 
         polymorphic_models.each_with_index do |polymorphic_model, index|
           sql << <<~SQL
-            #{'ELSE' if index > 0}IF TG_TABLE_NAME = ''#{polymorphic_model.classify.constantize.table_name}''
+            #{'ELSE' if index > 0}IF TG_TABLE_NAME = ''#{polymorphic_model.classify.constantize.table_name}'' THEN
               DELETE FROM #{associated_table}
                 WHERE #{relation}_type = ''#{polymorphic_model.classify}''
-                AND #{relation}_id = OLD.id);
+                AND #{relation}_id = OLD.id;
           SQL
         end
 
